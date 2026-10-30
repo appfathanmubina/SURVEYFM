@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#32105f">
+<title>Berbagi Spreadsheet | SURVEYFM</title>
+<style>
+:root{--purple:#32105f;--purple2:#4d2380;--gold:#e6bd55;--ink:#241b30;--muted:#756d7e;--line:#eee8f3;--bg:#f7f5fa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+.top{background:linear-gradient(120deg,#28104c,#512887);color:#fff;padding:28px 18px 56px}
+.wrap{width:min(1180px,100% - 32px);margin:auto}.brand{display:flex;align-items:center;gap:13px}.mark{width:46px;height:46px;border-radius:14px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.2);display:grid;place-items:center;color:var(--gold);font-weight:900;font-size:20px}.brand small{display:block;color:#d8c9e9;font-size:12px;letter-spacing:.12em;text-transform:uppercase}.brand strong{font-size:19px}.hero{margin-top:28px}.hero h1{font-size:clamp(25px,4vw,36px);margin:0 0 8px}.hero p{margin:0;color:#e3d9ed;font-size:14px}
+main{margin-top:-34px;padding-bottom:40px}.panel{background:#fff;border:1px solid #eee8f3;border-radius:20px;box-shadow:0 12px 35px rgba(43,18,68,.09);overflow:hidden}.toolbar{padding:18px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;border-bottom:1px solid var(--line)}.meta{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:13px}.meta b{color:var(--purple);font-weight:750}.actions{display:flex;gap:9px;flex-wrap:wrap}.btn{border:0;border-radius:11px;padding:11px 15px;font-weight:700;font-size:13px;cursor:pointer}.btn:disabled{opacity:.55;cursor:wait}.primary{background:var(--purple);color:white}.secondary{background:#f2edf8;color:var(--purple)}.search{padding:0 18px 16px}.search input{width:100%;border:1px solid #e5deeb;border-radius:11px;padding:12px 14px;font:inherit;font-size:14px;outline:none}.search input:focus{border-color:#8963b0;box-shadow:0 0 0 3px #eee6f6}.tablewrap{overflow:auto;max-height:68vh}table{border-collapse:separate;border-spacing:0;width:100%;min-width:680px;font-size:13px}th,td{padding:13px 15px;text-align:left;border-bottom:1px solid #f0ecf3;vertical-align:top;white-space:pre-wrap;max-width:420px}th{position:sticky;top:0;background:#f5f0f9;color:var(--purple);font-weight:800;z-index:1}tbody tr:hover{background:#fcfaff}td:first-child{color:#9a8da5}.empty{padding:42px 18px;text-align:center;color:var(--muted)}.status{padding:12px 18px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}.error{color:#a52d3a}.foot{text-align:center;color:#93899b;font-size:12px;padding:20px}
+@media(max-width:600px){.top{padding-top:20px}.brand strong{font-size:16px}.toolbar{align-items:flex-start}.actions{width:100%}.btn{flex:1}.meta{gap:10px}.tablewrap{max-height:65vh}th,td{padding:11px 12px}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+ <div class="brand"><div class="mark">SF</div><div><small>Berbagi Spreadsheet</small><strong>SURVEYFM</strong></div></div>
+ <div class="hero"><h1>Data Survey</h1><p>Informasi dari spreadsheet Pesantren Ciawi Bogor Fathan Mubina.</p></div>
+</div></header>
+<main class="wrap"><section class="panel">
+ <div class="toolbar"><div class="meta"><span>Sheet: <b>Data</b></span><span>Kolom: <b>C – G</b></span><span>Jumlah data: <b id="count">—</b></span></div>
+ <div class="actions"><button class="btn secondary" id="reload">↻ Muat Ulang</button><button class="btn primary" id="download" disabled>↓ Unduh Excel</button></div></div>
+ <div class="search"><input id="filter" type="search" placeholder="Cari data pada kolom C sampai G…" aria-label="Cari data"></div>
+ <div id="tableArea" class="empty">Menghubungkan ke spreadsheet…</div>
+ <div id="status" class="status" role="status">Memuat data…</div>
+</section><div class="foot">Data ditampilkan langsung dari Google Spreadsheet • SURVEYFM</div></main>
+<script>
+const SPREADSHEET_ID='1yHaqUM9OcJVVuEeOzTnTbMhcvpUolSoR_YUPzNQH_T0';
+const SHEET_NAME='Data';
+let headers=[], rows=[], filtered=[];
+const $=id=>document.getElementById(id);
+function setStatus(message,isError=false){$('status').textContent=message;$('status').classList.toggle('error',isError)}
+function cellValue(cell){if(!cell)return '';return cell.f!==undefined&&cell.f!==null?String(cell.f):cell.v===null||cell.v===undefined?'':String(cell.v)}
+function loadData(){
+ $('reload').disabled=true;$('download').disabled=true;$('tableArea').className='empty';$('tableArea').textContent='Mengambil data terbaru dari spreadsheet…';setStatus('Sedang memuat data…');
+ const callback='surveyFmResponse';
+ window[callback]=function(response){
+  try{
+   if(!response||response.status!=='ok')throw new Error(response&&response.errors&&response.errors[0]?response.errors[0].message:'Spreadsheet tidak dapat dibaca.');
+   const table=response.table||{};headers=(table.cols||[]).map((c,i)=>c.label||c.id||('Kolom '+(i+3)));
+   rows=(table.rows||[]).map(r=>(r.c||[]).map(cellValue));
+   filtered=rows.slice();render();
+   $('download').disabled=rows.length===0;
+   setStatus('Data berhasil dimuat • '+new Date().toLocaleString('id-ID'));
+  }catch(err){showError(err.message)}
+  finally{$('reload').disabled=false;try{delete window[callback]}catch(e){window[callback]=undefined}}
+ };
+ const script=document.createElement('script');
+ const tqx='out:json;responseHandler:'+callback;
+ const url='https://docs.google.com/spreadsheets/d/'+SPREADSHEET_ID+'/gviz/tq?'+new URLSearchParams({tq:'select *',sheet:SHEET_NAME,range:'C:G',tqx:tqx,_:Date.now()});
+ script.src=url;script.onerror=()=>{showError('Gagal mengakses spreadsheet. Pastikan aksesnya disetel ke “Siapa saja yang memiliki link – Pelihat”.');$('reload').disabled=false;};
+ document.head.appendChild(script);
+ setTimeout(()=>{if($('reload').disabled){$('reload').disabled=false;if(!$('download').disabled&&rows.length)return;setStatus('Permintaan terlalu lama. Periksa koneksi dan izin akses spreadsheet.',true)}},20000);
+}
+function showError(message){$('tableArea').className='empty error';$('tableArea').textContent=message;$('count').textContent='—';setStatus(message,true)}
+function render(){
+ $('count').textContent=filtered.length.toLocaleString('id-ID');
+ if(!headers.length){$('tableArea').className='empty';$('tableArea').textContent='Belum ada data untuk ditampilkan.';return}
+ const wrap=document.createElement('div');wrap.className='tablewrap';const table=document.createElement('table');const thead=document.createElement('thead');const hr=document.createElement('tr');
+ headers.forEach((h,i)=>{const th=document.createElement('th');th.textContent=h||('Kolom '+(i+3));hr.appendChild(th)});thead.appendChild(hr);table.appendChild(thead);
+ const tbody=document.createElement('tbody');filtered.forEach((r,index)=>{const tr=document.createElement('tr');r.forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td)});tbody.appendChild(tr)});
+ table.appendChild(tbody);wrap.appendChild(table);$('tableArea').className='';$('tableArea').replaceChildren(wrap);
+ if(!filtered.length){$('tableArea').className='empty';$('tableArea').textContent='Tidak ada data yang cocok dengan pencarian.'}
+}
+$('filter').addEventListener('input',e=>{const q=e.target.value.trim().toLocaleLowerCase('id');filtered=rows.filter(r=>r.some(v=>v.toLocaleLowerCase('id').includes(q)));render()});
+$('reload').addEventListener('click',loadData);
+$('download').addEventListener('click',()=>{
+ if(!rows.length)return;
+ if(!window.XLSX){setStatus('Komponen Excel belum termuat. Muat ulang halaman dan coba lagi.',true);return}
+ const aoa=[headers,...rows];const ws=XLSX.utils.aoa_to_sheet(aoa);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Data');XLSX.writeFile(wb,'SURVEYFM_Data_C-G.xlsx');setStatus('File Excel berhasil disiapkan.');
+});
+</script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>loadData();</script>
+</body></html>
